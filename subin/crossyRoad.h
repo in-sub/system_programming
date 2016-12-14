@@ -13,7 +13,7 @@
 #define X_INIT		22
 #define Y_INIT		20
 #define CAR_NUM		4
-#define TICKS_PER_SEC	50
+#define MAX_SCORE	5
 
 struct ppball{
 		int y_pos, x_pos;

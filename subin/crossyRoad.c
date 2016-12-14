@@ -13,6 +13,9 @@
 
 struct ppball 	the_ball;
 struct car_t	the_cars[CAR_NUM];
+int		game_over = 0;
+int		score = 0;
+int 		c = 0;
 
 void set_up();		//전체 초기화
 void init_ball();	//공 초기화
@@ -21,17 +24,14 @@ void add_boundary();	//경계선  그리기
 void add_road();	//도로 그리기
 void ball_move(void);	//공 움직임
 void ball_in_boundary(struct ppball*);	//공이 경계선을 넘지 않도록
+void set_score(int);
 void *car_thread(void *);
-void car_in_boundary(struct car_t*);
-void *ran_over(void *);
+void boucne_car(struct car_t*);
 void *input_char(void *);
 int set_ticker(int);
 
-//int score = 0;
-
 int main(){
 	int c, i;
-	//pthread_t t[CAR_NUM];
 	pthread_t ct, rt, it;
 
 	void *car_thread(void *);
@@ -39,29 +39,22 @@ int main(){
 	set_up();
 
 	pthread_create(&ct, NULL, car_thread, (void *)NULL);
-//	pthread_create(&rt, NULL, ran_over, (void *)NULL);
 	pthread_create(&it, NULL, input_char, (void *)NULL);
 
-//	pthread_create(&t[i], NULL, car_thread, (void *)&the_cars[i].idx);
-
-/*	while((c=getchar()) !='Q'){
-		if(c=='w')	{the_ball.y_dir = -2;	the_ball.x_dir = 0;}
-		else if(c=='s')	{the_ball.y_dir = 2;	the_ball.x_dir = 0;}
-		else if(c=='a')	{the_ball.x_dir = -2;	the_ball.y_dir = 0;}
-		else if(c=='d')	{the_ball.x_dir = 2;	the_ball.y_dir = 0;}
-		ball_move();
-	}*/
-	//for(i = 0; i < CAR_NUM; i++)
-	
 	do{
-	        i = (Y_INIT-2-the_ball.y_pos)/2;
-	}while( the_cars[i].x_pos != the_ball.x_pos );
-	printf("done\n");
+		i = (Y_INIT-2-the_ball.y_pos)/2;
+	}while( the_cars[i].x_pos != the_ball.x_pos && score <= MAX_SCORE && c != 'Q') ;
 	
+	if(score == MAX_SCORE)
+		printf("you win!!");
+	else{
+		game_over = 1;
+		printf("game over\n");
+	}
+	sleep(10);
 
-		pthread_join(ct, NULL);
-//		pthread_join(rt, NULL);
-		pthread_join(it, NULL);
+	pthread_join(ct, NULL);
+	pthread_join(it, NULL);
 
 	endwin();
 }
@@ -99,9 +92,8 @@ void init_car(){
 	for(int i = 0; i < CAR_NUM; i++){
 		the_cars[i].idx = i;
 		the_cars[i].y_pos = Y_INIT-2*(i+1);
-
 		the_cars[i].speed = rand()%5+1;
-//		printf("%d\n", the_cars[i].speed);
+
 		if(the_cars[i].speed % 2 == 1){
 			 the_cars[i].dir = 1;
 			 the_cars[i].x_pos = LEFT_EDGE+1;
@@ -136,15 +128,15 @@ void add_road(){
 
 void ball_move(){
 	int y_cur, x_cur;
-	static int back_cnt = 0;
+/*	static int back_cnt = 0;
 	static int score = 0;
-	char str_score[3];
+	char str_score[3];*/
 
 	y_cur = the_ball.y_pos;
 	x_cur = the_ball.x_pos;
 
 	ball_in_boundary(&the_ball);
-
+/*
 	if(y_cur < the_ball.y_pos)
 		back_cnt++;
 	else if(y_cur > the_ball.y_pos){
@@ -156,7 +148,9 @@ void ball_move(){
 			mvaddstr(5, 16, "   ");
 			mvaddstr(5, 16, str_score);
 		}
-	}
+	}*/
+
+	set_score(y_cur);	
 
 	mvaddch(y_cur, x_cur, BLANK);
 	mvaddch(the_ball.y_pos, the_ball.x_pos, the_ball.symbol);
@@ -175,30 +169,35 @@ void ball_in_boundary(struct ppball *bp){
 	}
 }
 
+void set_score(int y_cur){
+	static int back_cnt = 0;
+        char str_score[3];
+
+	if(y_cur < the_ball.y_pos)
+                back_cnt++;
+        else if(y_cur > the_ball.y_pos){
+                if(back_cnt > 0)
+                        back_cnt--;
+                else if(back_cnt == 0){
+                        score++;
+                        sprintf(str_score, "%d", score);
+                        mvaddstr(5, 16, "   ");
+                        mvaddstr(5, 16, str_score);
+                }
+        }
+
+}
+
 void *car_thread(void *m){
 
 	int *i = (int*) m;
 	
 	void car_move(int);
-//	void car_move1(int);
-//	void car_move2(int);
-//	void car_move3(int);
-
-//	case 0:
-		signal(SIGALRM, car_move);
-/*		break;
-	case 1:
-		printf("111");
-		signal(SIGALRM, car_move1);
-		break;
-	case 2:
-		signal(SIGALRM, car_move2);
-		break;
-	case 3:
-		signal(SIGALRM, car_move3);
-		break;
-	}*/
+	signal(SIGALRM, car_move);
 	set_ticker( 1000 );
+
+	while(c != 'Q' && game_over != 1 && score < MAX_SCORE);
+		return;
 }
 
 void car_move(int signum){
@@ -211,7 +210,7 @@ void car_move(int signum){
 		y_cur = cp->y_pos;
 		x_cur = cp->x_pos;
 	
-		car_in_boundary(cp);
+		bounce_car(cp);
 
 		mvaddch(y_cur, x_cur, BLANK);
 		mvaddch(cp->y_pos, cp->x_pos, cp->symbol);
@@ -221,32 +220,25 @@ void car_move(int signum){
 }
 
 
-void car_in_boundary(struct car_t *cp) {
+void bounce_car(struct car_t *cp) {
         int x;
         x = cp->x_pos + cp->dir * cp->speed;
 
-        if(x>LEFT_EDGE && x<RIGHT_EDGE)
-                cp->x_pos = x;
-}
-
-void *ran_over(void *m){
-	int i;// = (Y_INIT-2-the_ball.y_pos)/2;
-//	printf("%d", the_ball.y_pos);
-	
-	do{
-		i = (Y_INIT-2-the_ball.y_pos)/2;
-	}while( the_cars[i].x_pos != the_ball.x_pos );
-		printf("done\n");
-		sleep(1000);	
+        if( x < LEFT_EDGE && cp->dir == -1)
+		cp->dir = 1; 
+	else if( x > RIGHT_EDGE && cp->dir == 1)
+                cp->dir = -1;
+	else
+		cp->x_pos = x;
 }
 
 void *input_char(void *m){
-	int c;
-	  while((c=getchar()) !='Q'){
+
+	  while((c=getchar()) !='Q' && game_over != 1 && score < MAX_SCORE){
 	  	if(c=='w')      {the_ball.y_dir = -2;   the_ball.x_dir = 0;}
 		else if(c=='s') {the_ball.y_dir = 2;    the_ball.x_dir = 0;}
-		else if(c=='a') {the_ball.x_dir = -2;   the_ball.y_dir = 0;}
-		else if(c=='d') {the_ball.x_dir = 2;    the_ball.y_dir = 0;}
+		else if(c=='a') {the_ball.x_dir = -1;   the_ball.y_dir = 0;}
+		else if(c=='d') {the_ball.x_dir = 1;    the_ball.y_dir = 0;}
 		ball_move();
 	}
 }
